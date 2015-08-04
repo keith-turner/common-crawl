@@ -1,15 +1,16 @@
 package io.fluo.commoncrawl.web;
 
 import java.net.MalformedURLException;
-import java.text.ParseException;
 import java.util.Iterator;
 import java.util.Map;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
 import io.fluo.api.config.FluoConfiguration;
@@ -58,33 +59,38 @@ public class InboundResource {
   @Path("site")
   @Produces({MediaType.TEXT_HTML, MediaType.APPLICATION_JSON})
   public SiteView getSite(@QueryParam("domain") String domain,
-                          @DefaultValue("") @QueryParam("lastPage") String lastPage,
-                          @DefaultValue("") @QueryParam("prevLastPage") String prevLastPage) {
-    Site site = new Site(domain, prevLastPage);
+                          @DefaultValue("") @QueryParam("next") String next,
+                          @DefaultValue("0") @QueryParam("pageNum") Integer pageNum) {
+    Site site = new Site(domain, pageNum);
     try {
       Scanner scanner = conn.createScanner(dataConfig.accumuloIndexTable, Authorizations.EMPTY);
 
       String row = "d:" + DataUtil.reverseDomain(domain);
-      if (lastPage.isEmpty()) {
+      if (next.isEmpty()) {
         scanner.setRange(Range.exact(row));
       } else {
-        scanner.setRange(new Range(new Key(row, lastPage), new Key(row).followingKey(PartialKey.ROW)));
+        scanner.setRange(new Range(new Key(row, next), new Key(row).followingKey(PartialKey.ROW)));
       }
       Iterator<Map.Entry<Key, Value>> iterator = scanner.iterator();
+      if (next.isEmpty() && (pageNum > 0)) {
+        long skip = 0;
+        while (skip < (pageNum*25)) {
+          iterator.next();
+          skip++;
+        }
+      }
       long num = 0;
-      site.setMoreResults(false);
-      while (iterator.hasNext() && (num < 51)) {
+      while (iterator.hasNext() && (num < 26)) {
         Map.Entry<Key, Value> entry = iterator.next();
         Key key = entry.getKey();
         Value value = entry.getValue();
         String[] colArgs = key.getColumnFamily().toString().split("\t", 2);
         if (colArgs.length == 2) {
-          if (num == 50) {
-            site.setMoreResults(true);
+          if (num == 25) {
+            site.setNext(key.getColumnFamily().toString());
           } else {
             site.addPage(new PageCount(DataUtil.toUrl(colArgs[1].substring(2)),
-                                     Long.parseLong(value.toString())));
-            site.setLastPage(key.getColumnFamily().toString());
+                Long.parseLong(value.toString())));
           }
           num++;
         }
@@ -98,22 +104,42 @@ public class InboundResource {
   @GET
   @Path("page")
   @Produces({MediaType.TEXT_HTML, MediaType.APPLICATION_JSON})
-  public PageView getPage(@QueryParam("url") String url) {
-    Page page = new Page(url);
-
+  public PageView getPage(@QueryParam("url") String url,
+                          @DefaultValue("") @QueryParam("domain") String domain,
+                          @DefaultValue("") @QueryParam("next") String next,
+                          @DefaultValue("0") @QueryParam("pageNum") Integer pageNum) {
+    Page page = new Page(url, domain, pageNum);
     try {
       Scanner scanner = conn.createScanner(dataConfig.accumuloIndexTable, Authorizations.EMPTY);
-      scanner.setRange(Range.exact("p:" + DataUtil.toUri(url)));
+      String row = "p:" + DataUtil.toUri(url);
+      if (next.isEmpty()) {
+        scanner.setRange(Range.exact(row));
+      } else {
+        scanner.setRange(new Range(new Key(row, next), new Key(row).followingKey(PartialKey.ROW)));
+      }
       Iterator<Map.Entry<Key, Value>> iterator = scanner.iterator();
+      if (next.isEmpty() && (pageNum > 0)) {
+        long skip = 0;
+        while (skip < (pageNum*25)) {
+          Map.Entry<Key, Value> entry = iterator.next();
+          if (entry.getKey().getColumnFamily().toString().startsWith("p:")) {
+            skip++;
+          }
+        }
+      }
       long num = 0;
-      while (iterator.hasNext() && (num <= 50)) {
+      while (iterator.hasNext() && (num < 26)) {
         Map.Entry<Key, Value> entry = iterator.next();
         Key key = entry.getKey();
         Value value = entry.getValue();
         if (key.getColumnFamily().toString().startsWith("p:")) {
           String[] colArgs = key.getColumnFamily().toString().split("\t", 2);
           if (colArgs.length == 2) {
-            page.addLink(new WebLink(DataUtil.toUrl(colArgs[0].substring(2)), colArgs[1]));
+            if (num == 25) {
+              page.setNext(key.getColumnFamily().toString());
+            } else {
+              page.addLink(new WebLink(DataUtil.toUrl(colArgs[0].substring(2)), colArgs[1]));
+            }
             num++;
           }
         }

@@ -11,13 +11,9 @@ public class Site {
   @Length(max = 100)
   private String domain;
 
-  @Length(max = 1000)
-  private String lastPage;
+  private String next;
 
-  @Length(max = 1000)
-  private String prevLastPage;
-
-  boolean moreResults;
+  private Integer pageNum;
 
   private List<PageCount> pages = new ArrayList<>();
 
@@ -25,9 +21,9 @@ public class Site {
     // Jackson deserialization
   }
 
-  public Site(String domain, String prevLastPage) {
+  public Site(String domain, Integer pageNum) {
     this.domain = domain;
-    this.prevLastPage = prevLastPage;
+    this.pageNum = pageNum;
   }
 
   @JsonProperty
@@ -41,26 +37,17 @@ public class Site {
   }
 
   @JsonProperty
-  public String getLastPage() {
-    return lastPage;
+  public String getNext() {
+    return next;
   }
 
-  public void setLastPage(String lastPage) {
-    this.lastPage = lastPage;
-  }
-
-  @JsonProperty
-  public String getPrevLastPage() {
-    return prevLastPage;
+  public void setNext(String next) {
+    this.next = next;
   }
 
   @JsonProperty
-  public boolean getMoreResults() {
-    return moreResults;
-  }
-
-  public void setMoreResults(boolean moreResults) {
-    this.moreResults = moreResults;
+  public Integer getPageNum() {
+    return pageNum;
   }
 
   public void addPage(PageCount pc) {
