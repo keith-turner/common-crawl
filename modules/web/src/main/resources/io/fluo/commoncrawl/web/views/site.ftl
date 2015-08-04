@@ -4,6 +4,9 @@
 <body>
   <#if site.pages?has_content>
     <h3>Top pages for site: ${site.domain?html}</h3>
+    <#if site.moreResults>
+      <a href="/site?domain=${site.domain?url}&lastPage=${site.lastPage?url}">Next</a>
+    </#if>
     <table border="1">
       <thead><th>Inbound Links</th><th>URL</th></thead>
       <#list site.pages as page>

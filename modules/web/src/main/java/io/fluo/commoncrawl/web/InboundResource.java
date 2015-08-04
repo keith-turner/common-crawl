@@ -5,6 +5,7 @@ import java.text.ParseException;
 import java.util.Iterator;
 import java.util.Map;
 
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -25,6 +26,7 @@ import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.Scanner;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.data.Key;
+import org.apache.accumulo.core.data.PartialKey;
 import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.security.Authorizations;
@@ -55,27 +57,42 @@ public class InboundResource {
   @GET
   @Path("site")
   @Produces({MediaType.TEXT_HTML, MediaType.APPLICATION_JSON})
-  public SiteView getSite(@QueryParam("domain") String domain) {
-    Site tp = new Site(domain);
+  public SiteView getSite(@QueryParam("domain") String domain,
+                          @DefaultValue("") @QueryParam("lastPage") String lastPage,
+                          @DefaultValue("") @QueryParam("prevLastPage") String prevLastPage) {
+    Site site = new Site(domain, prevLastPage);
     try {
       Scanner scanner = conn.createScanner(dataConfig.accumuloIndexTable, Authorizations.EMPTY);
-      scanner.setRange(Range.exact("d:" + DataUtil.reverseDomain(domain)));
+
+      String row = "d:" + DataUtil.reverseDomain(domain);
+      if (lastPage.isEmpty()) {
+        scanner.setRange(Range.exact(row));
+      } else {
+        scanner.setRange(new Range(new Key(row, lastPage), new Key(row).followingKey(PartialKey.ROW)));
+      }
       Iterator<Map.Entry<Key, Value>> iterator = scanner.iterator();
       long num = 0;
-      while (iterator.hasNext() && (num <= 50)) {
+      site.setMoreResults(false);
+      while (iterator.hasNext() && (num < 51)) {
         Map.Entry<Key, Value> entry = iterator.next();
         Key key = entry.getKey();
         Value value = entry.getValue();
         String[] colArgs = key.getColumnFamily().toString().split("\t", 2);
         if (colArgs.length == 2) {
-          tp.addPage(new PageCount(DataUtil.toUrl(colArgs[1].substring(2)), Long.parseLong(value.toString())));
+          if (num == 50) {
+            site.setMoreResults(true);
+          } else {
+            site.addPage(new PageCount(DataUtil.toUrl(colArgs[1].substring(2)),
+                                     Long.parseLong(value.toString())));
+            site.setLastPage(key.getColumnFamily().toString());
+          }
           num++;
         }
       }
     } catch (TableNotFoundException e) {
       log.error("Table {} not found", dataConfig.accumuloIndexTable);
     }
-    return new SiteView(tp);
+    return new SiteView(site);
   }
 
   @GET
