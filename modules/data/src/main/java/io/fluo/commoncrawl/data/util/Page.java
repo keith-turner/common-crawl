@@ -21,6 +21,7 @@ import java.text.ParseException;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.google.common.base.Preconditions;
 import org.apache.commons.io.IOUtils;
 import org.archive.io.ArchiveRecord;
 import org.json.JSONArray;
@@ -50,9 +51,22 @@ public class Page {
   public static Page from(ArchiveRecord archiveRecord) throws IOException, ParseException {
     if (archiveRecord.getHeader().getMimetype().equalsIgnoreCase("application/json")) {
       byte[] rawData = IOUtils.toByteArray(archiveRecord, archiveRecord.available());
-      JSONObject json = new JSONObject(new String(rawData));
-      Page p = new Page(json, Link.fromUrl(archiveRecord.getHeader().getUrl()),
-                        archiveRecord.getHeader().getMimetype());
+      if (rawData.length == 0) {
+        return EMPTY;
+      }
+      String jsonString = new String(rawData);
+      if (jsonString.isEmpty()) {
+        return EMPTY;
+      }
+      JSONObject json;
+      try {
+        json = new JSONObject(new String(rawData));
+      } catch (JSONException e) {
+        throw new ParseException(e.getMessage(), 0);
+      }
+      Link lnk = Link.fromUrl(archiveRecord.getHeader().getUrl());
+      Preconditions.checkNotNull(lnk);
+      Page p = new Page(json, lnk, archiveRecord.getHeader().getMimetype());
       return p;
     }
     return EMPTY;
@@ -65,15 +79,6 @@ public class Page {
       log.info("Exception parsing ArchiveRecord with url {} due to {}", record.getHeader().getUrl(),
                e.getMessage());
       return EMPTY;
-    }
-  }
-
-  public static boolean isValid(ArchiveRecord record) {
-    try {
-      from(record);
-      return true;
-    } catch (Exception e) {
-      return false;
     }
   }
 

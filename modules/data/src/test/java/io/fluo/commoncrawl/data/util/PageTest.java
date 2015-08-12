@@ -34,6 +34,8 @@ public class PageTest {
 
     ArchiveReader archiveReader = WARCReaderFactory.get(new File("src/test/resources/wat.warc"));
     Page page = Page.from(archiveReader.get());
+    Assert.assertNotNull(page);
+    Assert.assertFalse(page.isEmpty());
 
     Assert.assertEquals("application/json", page.getMimeType());
     Assert.assertEquals("http://1079ishot.com/presale-password-trey-songz-young-jeezy-pre-christmas-bash/screen-shot-2011-10-27-at-11-12-06-am/", page.getLink().getUrl());
@@ -49,10 +51,11 @@ public class PageTest {
     int invalid = 0;
     Iterator<ArchiveRecord> records = ar2.iterator();
     while (records.hasNext()) {
-      ArchiveRecord r = records.next();
-      if (Page.isValid(r)) {
+      try {
+        ArchiveRecord r = records.next();
+        Page.from(r);
         valid++;
-      } else {
+      } catch (ParseException e) {
         invalid++;
       }
     }
