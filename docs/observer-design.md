@@ -2,6 +2,36 @@
 Observer Design Doc
 ===================
 
+Sample Data
+
+    a.com/page1 links to c.com, b.com
+    b.com links to c.com/page1, c.com
+    d.com links to c.com
+
+Resulting Fluo Table
+
+    row               cf        cq              value
+    --------------------------------------------------
+    d:com.a           rank      1:com.a/page1   1
+    d:com.b           rank      2:com.b         2
+    d:com.c           rank      3:com.c         3
+                                1:com.c/page1   1
+    d:com.d           rank      1:com.d         1
+    p:com.a/page1     page      cur             {"outlinkcount": 2, "outlinks":[c.com, b.com]}
+                      stats     pagescore       1
+    p:com.b           inlinks   com.a/pag1      anchorText
+                      page      cur             {"outlinkcount": 2, "outlinks":[c.com/page1, c.com]}
+                      stats     pagescore       2
+    p:com.c           inlinks   com.a/page1     anchorText
+                                com.b           anchorText
+                                com.d           anchorText
+                      stats     pagescore       3
+    p:com.c/page1     inlinks   com.b           anchorText
+                      stats     pagescore       1
+    p:com.d           page      cur             {"outlinkcount": 1, "outlinks":[c.com]}
+                      stats     pagescore       1
+
+
 Below are available operations:
 
     get(row, col) -> value
