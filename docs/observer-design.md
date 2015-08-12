@@ -22,15 +22,17 @@ Resulting Fluo Table
     p:com.b           inlinks   com.a/pag1      anchorText
                       page      cur             {"outlinkcount": 2, "outlinks":[c.com/page1, c.com]}
                       stats     pagescore       2
+                      stats     inlinkscount    1
     p:com.c           inlinks   com.a/page1     anchorText
                                 com.b           anchorText
                                 com.d           anchorText
+                      stats     inlinkscount    3
                       stats     pagescore       3
     p:com.c/page1     inlinks   com.b           anchorText
                       stats     pagescore       1
+                      stats     inlinkscount    1
     p:com.d           page      cur             {"outlinkcount": 1, "outlinks":[c.com]}
                       stats     pagescore       1
-
 
 Below are available operations:
 
@@ -61,10 +63,10 @@ PageObserver watches `page:new` is called with `pageUri`
       pageScore = get(pageUri, stats:pagescore).toInteger(0)
 
       if pageScore != 0:
-        del(pageDomain, ranked:pageScore:pageUri)
+        del(pageDomain, rank:pageScore:pageUri)
       
       set(pageUri, stats:pagescore, pageScore+1)
-      set(pageDomain, ranked:pageScore+1:pageUri)
+      set(pageDomain, rank:pageScore+1:pageUri)
 
     set(pageUri, page:cur, newJson)
     del(pageUri, page:new)
@@ -88,8 +90,8 @@ InlinksObserver weakly watches `update:inlinks` is called with `pageUri`
       curScore = get(pageUri, stats:pagescore).toInteger(0)
 
       if pageScore != 0:
-        del(pageDomain, ranked:curScore:pageUri)
+        del(pageDomain, rank:curScore:pageUri)
 
-      set(pageDomain, ranked:curScore+change:pageUri)
+      set(pageDomain, rank:curScore+change:pageUri)
       set(pageUri, stats:inlinkcount, curCount+change)
       set(pageUri, stats:pagescore, curScore+change)
