@@ -38,19 +38,19 @@ public class ExportQueue<K, V> {
     byte[] v = exporter.getValueSerializer().serialize(value);
 
     int hash = Hashing.murmur3_32().hashBytes(k).asInt();
-    int bucket = Math.abs(hash % numBuckets);
+    int bucketId = Math.abs(hash % numBuckets);
     // hash the hash for the case where numBuckets == numCounters... w/o hashing the hash there
     // would only be 1 counter per bucket in this case
     int counter = Math.abs(Hashing.murmur3_32().hashInt(hash).asInt() % numCounters);
 
-    ExportQueueModel model = new ExportQueueModel(tx);
+    Bucket bucket = new Bucket(tx, exporter.getQueueId(), bucketId);
 
-    long seq = model.getSequenceNumber(exporter.getQueueId(), bucket, counter);
+    long seq = bucket.getSequenceNumber(counter);
 
-    model.add(exporter.getQueueId(), bucket, seq, k, v);
+    bucket.add(seq, k, v);
 
-    model.setSequenceNumber(exporter.getQueueId(), bucket, counter, seq + 1);
+    bucket.setSequenceNumber(counter, seq + 1);
 
-    model.notifyExportObserver(exporter.getQueueId(), bucket, k);
+    bucket.notifyExportObserver(k);
   }
 }

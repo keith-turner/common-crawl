@@ -37,16 +37,14 @@ public abstract class Exporter<K, V> extends AbstractObserver {
 
   @Override
   public ObservedColumn getObservedColumn() {
-    return new ObservedColumn(new Column("fluoRecipes", "eq:" + queueId), NotificationType.WEAK);
+    return new ObservedColumn(Bucket.newNotificationColumn(getQueueId()), NotificationType.WEAK);
   }
 
   @Override
   public void process(TransactionBase tx, Bytes row, Column column) throws Exception {
-    ExportQueueModel model = new ExportQueueModel(tx);
+    Bucket bucket = new Bucket(tx, row);
 
-    int bucket = model.getBucket(row, column);
-
-    Iterator<ExportEntry> exportIterator = model.getExportIterator(queueId, bucket);
+    Iterator<ExportEntry> exportIterator = bucket.getExportIterator();
 
     startingToProcessBatch();
 
@@ -82,6 +80,7 @@ public abstract class Exporter<K, V> extends AbstractObserver {
 
   public void setConfiguration(Configuration appConfig, ExportQueueOptions opts) {
     appConfig.setProperty("recipes.exportQueue." + getQueueId() + ".buckets", opts.numBuckets + "");
-    appConfig.setProperty("recipes.exportQueue." + getQueueId() + ".counters", opts.numCounters + "");
+    appConfig.setProperty("recipes.exportQueue." + getQueueId() + ".counters", opts.numCounters
+        + "");
   }
 }
